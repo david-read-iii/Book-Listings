@@ -7,11 +7,11 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +23,12 @@ import java.util.List;
  * TODO: Keep updating documentation.
  */
 public class MainActivity extends AppCompatActivity {
+
+    /**
+     * {@link MenuItem} that holds the {@link SearchView}. Made global so it is accessible in the
+     * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener}.
+     */
+    private MenuItem searchViewMenuItem;
 
     /**
      * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener} for the {@link SearchView}
@@ -38,8 +44,24 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public boolean onQueryTextSubmit(String query) {
-            Toast.makeText(MainActivity.this, "Search submitted for \"" + query + "\"", Toast.LENGTH_SHORT).show();
-            return false; // False so the SearchView loses focus.
+
+            // Update UI with a list of sample books.
+            ArrayList<Book> sampleBooks = new ArrayList<>();
+            sampleBooks.add(new Book("Android For Dummies", "Dan Gookin", "http://books.google.com/books?id=JGH0DwAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Learning Android", "Marko Gargenta", "http://books.google.com/books?id=oMYQz4_BW48C&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Hello, Android", "Ed Burnette", "https://play.google.com/store/books/details?id=_A5QDwAAQBAJ&source=gbs_api"));
+            sampleBooks.add(new Book("Android Phones For Dummies", "Dan Gookin", "http://books.google.com/books?id=-OwtDQAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Embedded Android", "Karim Yaghmour", "http://books.google.com/books?id=KER0dd2oYP8C&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Android App Development For Dummies", "Michael Burton", "http://books.google.com/books?id=nDqkBgAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Programming Android", "Zigurd Mednieks", "http://books.google.com/books?id=5BGBswAQSiEC&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Teach Yourself VISUALLY Android Phones and Tablets", "Guy Hart-Davis", "http://books.google.com/books?id=M7ngCAAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Beginning Android Tablet Application Development", "Wei-Meng Lee", "http://books.google.com/books?id=WLrAqVo4HzcC&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Professional Android", "Reto Meier", "http://books.google.com/books?id=aYpoDwAAQBAJ&dq=android&hl=&source=gbs_api"));
+            updateUi(sampleBooks);
+
+            getSupportActionBar().setTitle(getString(R.string.results, query));
+            searchViewMenuItem.collapseActionView();
+            return false;
         }
 
         /**
@@ -88,21 +110,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // TODO: Remove when network request to fetch live data is implemented.
-        // Update UI with a list of sample books.
-        ArrayList<Book> sampleBooks = new ArrayList<>();
-        sampleBooks.add(new Book("Android For Dummies", "Dan Gookin", "http://books.google.com/books?id=JGH0DwAAQBAJ&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Learning Android", "Marko Gargenta", "http://books.google.com/books?id=oMYQz4_BW48C&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Hello, Android", "Ed Burnette", "https://play.google.com/store/books/details?id=_A5QDwAAQBAJ&source=gbs_api"));
-        sampleBooks.add(new Book("Android Phones For Dummies", "Dan Gookin", "http://books.google.com/books?id=-OwtDQAAQBAJ&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Embedded Android", "Karim Yaghmour", "http://books.google.com/books?id=KER0dd2oYP8C&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Android App Development For Dummies", "Michael Burton", "http://books.google.com/books?id=nDqkBgAAQBAJ&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Programming Android", "Zigurd Mednieks", "http://books.google.com/books?id=5BGBswAQSiEC&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Teach Yourself VISUALLY Android Phones and Tablets", "Guy Hart-Davis", "http://books.google.com/books?id=M7ngCAAAQBAJ&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Beginning Android Tablet Application Development", "Wei-Meng Lee", "http://books.google.com/books?id=WLrAqVo4HzcC&dq=android&hl=&source=gbs_api"));
-        sampleBooks.add(new Book("Professional Android", "Reto Meier", "http://books.google.com/books?id=aYpoDwAAQBAJ&dq=android&hl=&source=gbs_api"));
-        updateUi(sampleBooks);
     }
 
     /**
@@ -116,7 +123,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
-        SearchView searchView = (SearchView) menu.findItem(R.id.search_view).getActionView();
+        searchViewMenuItem = menu.findItem(R.id.search_view);
+        SearchView searchView = (SearchView) searchViewMenuItem.getActionView();
         searchView.setOnQueryTextListener(onQueryTextListener);
         return true;
     }

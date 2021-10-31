@@ -15,7 +15,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:textAppearance="?android:textAppearanceMedium"
-        android:visibility="invisible" />
+        android:text="@string/alert_submit_a_search"
+        android:textAppearance="?android:textAppearanceMedium" />
 
 </RelativeLayout>
