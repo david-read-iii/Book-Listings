@@ -10,6 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -56,8 +57,42 @@ public class BookAdapter extends ArrayAdapter<Book> {
         titleTextView.setText(book.getTitle());
 
         TextView authorsTextView = convertView.findViewById(R.id.authors_text_view);
-        authorsTextView.setText(book.getAuthors());
+        authorsTextView.setText(getFormattedAuthorsString(book.getAuthors()));
 
         return convertView;
+    }
+
+    /**
+     * Returns a {@link List} of {@link Book} objects that are stored within this adapter.
+     *
+     * @return A {@link List} of {@link Book} objects that are stored within this adapter.
+     */
+    public List<Book> getObjects() {
+        List<Book> books = new ArrayList<>();
+        if (getCount() > 0) {
+            for (int index = 0; index < getCount(); index++) {
+                books.add(getItem(index));
+            }
+        }
+        return books;
+    }
+
+    /**
+     * Returns a formatted string for the authors string array member variable of a {@link Book}
+     * object.
+     *
+     * @param authors {@link String} array representing the authors of a {@link Book} object.
+     * @return A formatted string for the authors string array member variable of a {@link Book}
+     * object.
+     */
+    private String getFormattedAuthorsString(String[] authors) {
+        StringBuilder formattedAuthorsString = new StringBuilder();
+        for (int index = 0; index < authors.length; index++) {
+            if (index > 0) {
+                formattedAuthorsString.append(", ");
+            }
+            formattedAuthorsString.append(authors[index]);
+        }
+        return formattedAuthorsString.toString();
     }
 }

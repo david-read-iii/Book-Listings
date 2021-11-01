@@ -1,11 +1,14 @@
 package com.davidread.booklistings;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
 
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -23,6 +26,14 @@ import java.util.List;
  * TODO: Keep updating documentation.
  */
 public class MainActivity extends AppCompatActivity {
+
+    /**
+     * {@link String} constants for accessing objects contained within {@link Bundle} objects.
+     */
+    public static final String BUNDLE_USER_INTERFACE = "user_interface";
+    public static final String BUNDLE_BOOKS = "books";
+    public static final String BUNDLE_APP_BAR_TITLE = "app_bar_title";
+    public static final String BUNDLE_ALERT_MESSAGE = "alert_message";
 
     /**
      * {@link MenuItem} that holds the {@link SearchView}. Made global so it is accessible in the
@@ -47,19 +58,19 @@ public class MainActivity extends AppCompatActivity {
 
             // Update UI with a list of sample books.
             ArrayList<Book> sampleBooks = new ArrayList<>();
-            sampleBooks.add(new Book("Android For Dummies", "Dan Gookin", "http://books.google.com/books?id=JGH0DwAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Learning Android", "Marko Gargenta", "http://books.google.com/books?id=oMYQz4_BW48C&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Hello, Android", "Ed Burnette", "https://play.google.com/store/books/details?id=_A5QDwAAQBAJ&source=gbs_api"));
-            sampleBooks.add(new Book("Android Phones For Dummies", "Dan Gookin", "http://books.google.com/books?id=-OwtDQAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Embedded Android", "Karim Yaghmour", "http://books.google.com/books?id=KER0dd2oYP8C&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Android App Development For Dummies", "Michael Burton", "http://books.google.com/books?id=nDqkBgAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Programming Android", "Zigurd Mednieks", "http://books.google.com/books?id=5BGBswAQSiEC&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Teach Yourself VISUALLY Android Phones and Tablets", "Guy Hart-Davis", "http://books.google.com/books?id=M7ngCAAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Beginning Android Tablet Application Development", "Wei-Meng Lee", "http://books.google.com/books?id=WLrAqVo4HzcC&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Professional Android", "Reto Meier", "http://books.google.com/books?id=aYpoDwAAQBAJ&dq=android&hl=&source=gbs_api"));
-            updateUi(sampleBooks);
+            sampleBooks.add(new Book("Android For Dummies", new String[]{"Dan Gookin"}, "http://books.google.com/books?id=JGH0DwAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Learning Android", new String[]{"Marko Gargenta"}, "http://books.google.com/books?id=oMYQz4_BW48C&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Hello, Android", new String[]{"Ed Burnette"}, "https://play.google.com/store/books/details?id=_A5QDwAAQBAJ&source=gbs_api"));
+            sampleBooks.add(new Book("Android Phones For Dummies", new String[]{"Dan Gookin"}, "http://books.google.com/books?id=-OwtDQAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Embedded Android", new String[]{"Karim Yaghmour"}, "http://books.google.com/books?id=KER0dd2oYP8C&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Android App Development For Dummies", new String[]{"Michael Burton"}, "http://books.google.com/books?id=nDqkBgAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Programming Android", new String[]{"Zigurd Mednieks"}, "http://books.google.com/books?id=5BGBswAQSiEC&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Teach Yourself VISUALLY Android Phones and Tablets", new String[]{"Guy Hart-Davis"}, "http://books.google.com/books?id=M7ngCAAAQBAJ&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Beginning Android Tablet Application Development", new String[]{"Wei-Meng Lee"}, "http://books.google.com/books?id=WLrAqVo4HzcC&dq=android&hl=&source=gbs_api"));
+            sampleBooks.add(new Book("Professional Android", new String[]{"Reto Meier"}, "http://books.google.com/books?id=aYpoDwAAQBAJ&dq=android&hl=&source=gbs_api"));
+            updateUi(sampleBooks, getString(R.string.results, query), getString(R.string.alert_list_empty));
 
-            getSupportActionBar().setTitle(getString(R.string.results, query));
+            // Collapse SearchView.
             searchViewMenuItem.collapseActionView();
             return false;
         }
@@ -113,8 +124,41 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * {@link AppCompatActivity} callback method that inflates the menu layout in the app bar and
-     * sets up the {@link SearchView} with an
+     * {@link AppCompatActivity} callback method that saves the instance state of the activity when
+     * the configuration changes. Data about the {@link ListView}, the app bar title, and the text
+     * that displays when the list is empty are stored within a {@link Bundle} object that persists
+     * during the configuration change.
+     *
+     * @param outState {@link Bundle} object where data should be saved that will survive the
+     *                 configuration change.
+     */
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putBundle(BUNDLE_USER_INTERFACE, getUi());
+        super.onSaveInstanceState(outState);
+    }
+
+    /**
+     * {@link AppCompatActivity} callback method that restores the instance state of the activity
+     * after a configuration change. Data about the {@link ListView}, the app bar title, and the
+     * text that displays when the list is empty are restored from a {@link Bundle} object that
+     * survived the configuration change.
+     *
+     * @param savedInstanceState The {@link Bundle} object that was passed in onSaveInstanceState().
+     */
+    @Override
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        Bundle userInterfaceBundle = savedInstanceState.getBundle(BUNDLE_USER_INTERFACE);
+        updateUi(userInterfaceBundle.getParcelableArrayList(BUNDLE_BOOKS),
+                userInterfaceBundle.getString(BUNDLE_APP_BAR_TITLE),
+                userInterfaceBundle.getString(BUNDLE_ALERT_MESSAGE)
+        );
+        super.onRestoreInstanceState(savedInstanceState);
+    }
+
+    /**
+     * {@link AppCompatActivity} callback method that inflates the menu layout in the app bar. It
+     * also makes the search view {@link MenuItem} global and sets up the {@link SearchView} with an
      * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener}.
      *
      * @param menu {@link Menu} object where the menu layout should be inflated.
@@ -130,44 +174,65 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Updates the {@link ListView} in the activity layout to display the data contained within
-     * the {@link List} of {@link Book} objects.
+     * Updates the user interface of this activity. The {@link List} of {@link Book} objects is
+     * displayed in a {@link ListView} object, the {@link String} appBarTitle is displayed in the
+     * app bar's title, and the {@link String} alertMessage is set as text that displays when the
+     * list is empty.
      *
      * @param books {@link List} of {@link Book} objects to display.
      */
-    private void updateUi(List<Book> books) {
+    private void updateUi(List<Book> books, String appBarTitle, String alertMessage) {
+
+        // Update the ListView.
         ListView listView = findViewById(R.id.book_list_view);
-
-        // Setup BookAdapter to adapt Book objects into View objects for the ListView.
-        BookAdapter bookAdapter = new BookAdapter(this, books);
-        listView.setAdapter(bookAdapter);
-
-        // Attach onItemClickListener to ListView.
+        listView.setAdapter(new BookAdapter(this, books));
         listView.setOnItemClickListener(onItemClickListener);
 
-        // Setup alert TextView to be visible if the list is empty.
+        // Update the app bar title.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle(appBarTitle);
+        }
+
+        // Update the TextView that shows when the list is empty.
         TextView alertTextView = findViewById(R.id.alert_text_view);
-        alertTextView.setText(R.string.alert_list_empty);
+        alertTextView.setText(alertMessage);
         listView.setEmptyView(alertTextView);
     }
 
     /**
-     * Invalidates the data displayed in the {@link ListView} in the activity layout.
+     * Returns the attributes of the user interface in a {@link Bundle} object. Such attributes
+     * include the {@link List} of {@link Book} objects that were displayed in the {@link ListView},
+     * the {@link String} displayed in the app bar title, and the {@link String} displayed in the
+     * {@link TextView} that displays when the list is empty.
      *
-     * @param alertMessage {@link String} explaining why the data was invalidated.
+     * @return The attributes of the user interface in a {@link Bundle} object
      */
-    private void invalidateUi(String alertMessage) {
+    private Bundle getUi() {
+        Bundle bundle = new Bundle();
+
+        // Put List object displayed on the ListView in the Bundle object.
         ListView listView = findViewById(R.id.book_list_view);
-
-        // Remove all elements from the list in BookAdapter.
         BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
+        List<Book> books = new ArrayList<>();
         if (bookAdapter != null) {
-            bookAdapter.clear();
+            books = bookAdapter.getObjects();
         }
+        bundle.putParcelableArrayList(BUNDLE_BOOKS, (ArrayList<? extends Parcelable>) books);
 
-        // Setup alert TextView to explain why the list is invalidated.
-        TextView listTextView = findViewById(R.id.alert_text_view);
-        listTextView.setText(alertMessage);
-        listTextView.setVisibility(View.VISIBLE);
+        // Put app bar title in the Bundle object.
+        String actionBarTitle = getString(R.string.app_name);
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null && actionBar.getTitle() != null) {
+            actionBarTitle = actionBar.getTitle().toString();
+        }
+        bundle.putString(BUNDLE_APP_BAR_TITLE, actionBarTitle);
+
+        // Put alert message in the Bundle object.
+        TextView alertTextView = findViewById(R.id.alert_text_view);
+        String alertMessage = alertTextView.getText().toString();
+        bundle.putString(BUNDLE_ALERT_MESSAGE, alertMessage);
+
+        return bundle;
     }
 }

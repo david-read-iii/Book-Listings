@@ -2,7 +2,7 @@
     <string name="app_name">Book Listings</string>
     <string name="action_search">Search</string>
     <string name="results">Results for \"%1$s\"</string>
-    <string name="alert_submit_a_search">To get started, submit a search</string>
+    <string name="alert_submit_a_search">To get started, tap the search icon</string>
     <string name="alert_list_empty">No books found</string>
     <string name="alert_no_internet">No Internet connection</string>
 </resources>
