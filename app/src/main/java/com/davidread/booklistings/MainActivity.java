@@ -1,9 +1,12 @@
 package com.davidread.booklistings;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -14,63 +17,48 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * {@link MainActivity} is an activity class that represents a searchable book listing. A
- * {@link SearchView} in the app bar specifies the name of the book they want to query. A
- * {@link ListView} maintains a list of books returned by the most recent search query.
- * TODO: Keep updating documentation.
+ * {@link MainActivity} is an activity class that represents a searchable book listing screen. A
+ * {@link SearchView} in the app bar specifies the book they want to query. A {@link ListView}
+ * maintains a list of books returned by the most recent search query.
  */
 public class MainActivity extends AppCompatActivity {
 
     /**
      * {@link String} constants for accessing objects contained within {@link Bundle} objects.
      */
-    public static final String BUNDLE_USER_INTERFACE = "user_interface";
-    public static final String BUNDLE_BOOKS = "books";
-    public static final String BUNDLE_APP_BAR_TITLE = "app_bar_title";
-    public static final String BUNDLE_ALERT_MESSAGE = "alert_message";
-
-    /**
-     * {@link MenuItem} that holds the {@link SearchView}. Made global so it is accessible in the
-     * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener}.
-     */
-    private MenuItem searchViewMenuItem;
+    private static final String BUNDLE_USER_INTERFACE = "user_interface";
+    private static final String BUNDLE_BOOKS = "books";
+    private static final String BUNDLE_APP_BAR_TITLE = "app_bar_title";
+    private static final String BUNDLE_ALERT_MESSAGE = "alert_message";
+    private static final String BUNDLE_BOOK_LOADER_ID = "book_loader_id";
+    private static final String BUNDLE_QUERY = "query";
 
     /**
      * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener} for the {@link SearchView}
      * in the app bar. This object defines how to handle queryTextSubmit and queryTextChange events.
      */
-    private SearchView.OnQueryTextListener onQueryTextListener = new SearchView.OnQueryTextListener() {
+    private final SearchView.OnQueryTextListener onQueryTextListener = new SearchView.OnQueryTextListener() {
 
         /**
-         * TODO: Implement actual search behavior.
+         * Initialize new {@link BookLoader} for the specified query and collapses the
+         * {@link SearchView}.
          *
          * @param query {@link String} query submitted by the user.
          * @return Whether this event was handled by this method.
          */
         @Override
         public boolean onQueryTextSubmit(String query) {
-
-            // Update UI with a list of sample books.
-            ArrayList<Book> sampleBooks = new ArrayList<>();
-            sampleBooks.add(new Book("Android For Dummies", new String[]{"Dan Gookin"}, "http://books.google.com/books?id=JGH0DwAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Learning Android", new String[]{"Marko Gargenta"}, "http://books.google.com/books?id=oMYQz4_BW48C&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Hello, Android", new String[]{"Ed Burnette"}, "https://play.google.com/store/books/details?id=_A5QDwAAQBAJ&source=gbs_api"));
-            sampleBooks.add(new Book("Android Phones For Dummies", new String[]{"Dan Gookin"}, "http://books.google.com/books?id=-OwtDQAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Embedded Android", new String[]{"Karim Yaghmour"}, "http://books.google.com/books?id=KER0dd2oYP8C&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Android App Development For Dummies", new String[]{"Michael Burton"}, "http://books.google.com/books?id=nDqkBgAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Programming Android", new String[]{"Zigurd Mednieks"}, "http://books.google.com/books?id=5BGBswAQSiEC&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Teach Yourself VISUALLY Android Phones and Tablets", new String[]{"Guy Hart-Davis"}, "http://books.google.com/books?id=M7ngCAAAQBAJ&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Beginning Android Tablet Application Development", new String[]{"Wei-Meng Lee"}, "http://books.google.com/books?id=WLrAqVo4HzcC&dq=android&hl=&source=gbs_api"));
-            sampleBooks.add(new Book("Professional Android", new String[]{"Reto Meier"}, "http://books.google.com/books?id=aYpoDwAAQBAJ&dq=android&hl=&source=gbs_api"));
-            updateUi(sampleBooks, getString(R.string.results, query), getString(R.string.alert_list_empty));
-
-            // Collapse SearchView.
+            updateUiToLoadingState();
+            Bundle args = new Bundle();
+            args.putString(BUNDLE_QUERY, query);
+            getSupportLoaderManager().initLoader(bookLoaderId++, args, loaderCallbacks);
             searchViewMenuItem.collapseActionView();
             return false;
         }
@@ -91,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
      * {@link android.widget.AdapterView.OnItemClickListener} for the {@link ListView} in the
      * activity layout. This object defines how to handle itemClick events.
      */
-    private AdapterView.OnItemClickListener onItemClickListener = new AdapterView.OnItemClickListener() {
+    private final AdapterView.OnItemClickListener onItemClickListener = new AdapterView.OnItemClickListener() {
 
         /**
          * Start an intent to open the device's browser when an item is clicked. The URL will be
@@ -113,7 +101,68 @@ public class MainActivity extends AppCompatActivity {
     };
 
     /**
-     * {@link AppCompatActivity} callback method that inflates the activity layout.
+     * {@link androidx.loader.app.LoaderManager.LoaderCallbacks} for the {@link BookLoader} that is
+     * initialized when a search query is submitted.
+     */
+    private final LoaderManager.LoaderCallbacks<List<Book>> loaderCallbacks = new LoaderManager.LoaderCallbacks<List<Book>>() {
+
+        /**
+         * Called by {@link LoaderManager} when it needs a new {@link BookLoader} object.
+         *
+         * @param id    Unique int id for the {@link BookLoader} object.
+         * @param args  {@link Bundle} containing arguments for the {@link BookLoader}.
+         * @return A {@link BookLoader} object.
+         */
+        @NonNull
+        @Override
+        public Loader<List<Book>> onCreateLoader(int id, @Nullable Bundle args) {
+            String query = "";
+            if (args != null) {
+                query = args.getString(BUNDLE_QUERY);
+            }
+            return new BookLoader(MainActivity.this, query);
+        }
+
+        /**
+         * Called by {@link LoaderManager} when a {@link BookLoader} finishes. It updates the UI with
+         * data fetched by the {@link BookLoader}.
+         *
+         * @param loader    {@link Loader} object that finished.
+         * @param data      {@link List} of {@link Book} objects returned by the {@link BookLoader}.
+         */
+        @Override
+        public void onLoadFinished(@NonNull Loader<List<Book>> loader, List<Book> data) {
+            BookLoader bookLoader = (BookLoader) loader;
+            updateUiWithList(data, getString(R.string.results, bookLoader.getQuery()), getString(R.string.alert_list_empty));
+        }
+
+        /**
+         * Called by {@link LoaderManager} when a {@link BookLoader} needs to be reset. It simply
+         * resets the UI to a start state.
+         *
+         * @param loader    {@link Loader} object to be reset.
+         */
+        @Override
+        public void onLoaderReset(@NonNull Loader<List<Book>> loader) {
+            updateUiToStartState();
+        }
+    };
+
+    /**
+     * {@link MenuItem} that holds the {@link SearchView}. Made global so it is accessible in the
+     * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener}.
+     */
+    private MenuItem searchViewMenuItem;
+
+    /**
+     * int representing the id of the current {@link BookLoader} object. It must be unique for each
+     * search query.
+     */
+    private int bookLoaderId;
+
+    /**
+     * {@link AppCompatActivity} callback method that inflates the activity layout and initializes
+     * the user interface to the start state.
      *
      * @param savedInstanceState {@link Bundle} for superclass constructor.
      */
@@ -121,6 +170,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        updateUiToStartState();
     }
 
     /**
@@ -135,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         outState.putBundle(BUNDLE_USER_INTERFACE, getUi());
+        outState.putInt(BUNDLE_BOOK_LOADER_ID, bookLoaderId);
         super.onSaveInstanceState(outState);
     }
 
@@ -149,10 +200,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         Bundle userInterfaceBundle = savedInstanceState.getBundle(BUNDLE_USER_INTERFACE);
-        updateUi(userInterfaceBundle.getParcelableArrayList(BUNDLE_BOOKS),
+        updateUiWithList(userInterfaceBundle.getParcelableArrayList(BUNDLE_BOOKS),
                 userInterfaceBundle.getString(BUNDLE_APP_BAR_TITLE),
                 userInterfaceBundle.getString(BUNDLE_ALERT_MESSAGE)
         );
+        bookLoaderId = savedInstanceState.getInt(BUNDLE_BOOK_LOADER_ID);
         super.onRestoreInstanceState(savedInstanceState);
     }
 
@@ -174,14 +226,72 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Updates the user interface of this activity. The {@link List} of {@link Book} objects is
-     * displayed in a {@link ListView} object, the {@link String} appBarTitle is displayed in the
-     * app bar's title, and the {@link String} alertMessage is set as text that displays when the
-     * list is empty.
-     *
-     * @param books {@link List} of {@link Book} objects to display.
+     * Updates the user interface of this activity to the start state. This entails hiding the
+     * {@link ProgressBar}, nullifying the adapter of the {@link ListView}, updating the app bar
+     * title, and updating the alert {@link TextView}.
      */
-    private void updateUi(List<Book> books, String appBarTitle, String alertMessage) {
+    private void updateUiToStartState() {
+
+        // Hide ProgressBar.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        progressBar.setVisibility(View.INVISIBLE);
+
+        // Nullify ListView adapter.
+        ListView listView = findViewById(R.id.book_list_view);
+        listView.setAdapter(null);
+
+        // Update the app bar title.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle(getString(R.string.app_name));
+        }
+
+        // Update the alert TextView.
+        TextView alertTextView = findViewById(R.id.alert_text_view);
+        alertTextView.setText(getString(R.string.alert_start));
+        alertTextView.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Updates the user interface of this activity to the loading state. This entails showing the
+     * {@link ProgressBar}, nullifying the adapter of the {@link ListView}, updating the app bar
+     * title, and updating the alert {@link TextView}.
+     */
+    private void updateUiToLoadingState() {
+
+        // Show ProgressBar.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        progressBar.setVisibility(View.VISIBLE);
+
+        // Nullify ListView adapter.
+        ListView listView = findViewById(R.id.book_list_view);
+        listView.setAdapter(null);
+
+        // Update the app bar title.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle("");
+        }
+
+        // Hide the TextView that shows when the list is empty.
+        TextView alertTextView = findViewById(R.id.alert_text_view);
+        alertTextView.setVisibility(View.INVISIBLE);
+    }
+
+    /**
+     * Updates the user interface of this activity to display a list of results. This entails hiding
+     * the {@link ProgressBar}, setting up the {@link ListView}, updating the app bar title, and
+     * updating the alert {@link TextView}.
+     *
+     * @param books        {@link List} of {@link Book} objects to display.
+     * @param appBarTitle  {@link String} to display in the app bar title.
+     * @param alertMessage {@link String} to display in the alert {@link TextView}.
+     */
+    private void updateUiWithList(List<Book> books, String appBarTitle, String alertMessage) {
+
+        // Hide ProgressBar.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        progressBar.setVisibility(View.INVISIBLE);
 
         // Update the ListView.
         ListView listView = findViewById(R.id.book_list_view);
@@ -197,6 +307,7 @@ public class MainActivity extends AppCompatActivity {
         // Update the TextView that shows when the list is empty.
         TextView alertTextView = findViewById(R.id.alert_text_view);
         alertTextView.setText(alertMessage);
+        alertTextView.setVisibility(View.VISIBLE);
         listView.setEmptyView(alertTextView);
     }
 
