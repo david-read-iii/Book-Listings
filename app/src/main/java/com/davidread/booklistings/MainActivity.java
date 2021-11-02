@@ -8,7 +8,10 @@ import androidx.appcompat.widget.SearchView;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -31,12 +34,14 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     /**
-     * {@link String} constants for accessing objects contained within {@link Bundle} objects.
+     * {@link String} constants for accessing data contained within {@link Bundle} objects.
      */
     private static final String BUNDLE_USER_INTERFACE = "user_interface";
-    private static final String BUNDLE_BOOKS = "books";
     private static final String BUNDLE_APP_BAR_TITLE = "app_bar_title";
+    private static final String BUNDLE_LIST_OF_BOOKS = "list_of_books";
     private static final String BUNDLE_ALERT_MESSAGE = "alert_message";
+    private static final String BUNDLE_ALERT_MESSAGE_VISIBILITY = "alert_message_visibility";
+    private static final String BUNDLE_PROGRESS_BAR_VISIBILITY = "progress_bar_visibility";
     private static final String BUNDLE_BOOK_LOADER_ID = "book_loader_id";
     private static final String BUNDLE_QUERY = "query";
 
@@ -47,24 +52,40 @@ public class MainActivity extends AppCompatActivity {
     private final SearchView.OnQueryTextListener onQueryTextListener = new SearchView.OnQueryTextListener() {
 
         /**
-         * Initialize new {@link BookLoader} for the specified query and collapses the
-         * {@link SearchView}.
+         * Called by {@link SearchView} when a user submits a query. When this happens, check if the
+         * user is connected to the Internet. If so, put the UI in the loading state and initialize
+         * a new {@link BookLoader} for the query on the {@link LoaderManager}. If the user is not
+         * connected to the Internet, put the UI in an error state.
          *
          * @param query {@link String} query submitted by the user.
          * @return Whether this event was handled by this method.
          */
         @Override
         public boolean onQueryTextSubmit(String query) {
-            updateUiToLoadingState();
-            Bundle args = new Bundle();
-            args.putString(BUNDLE_QUERY, query);
-            getSupportLoaderManager().initLoader(bookLoaderId++, args, loaderCallbacks);
+
+            // Check if device is connected to the Internet.
+            ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+            boolean isDeviceConnected = activeNetworkInfo != null && activeNetworkInfo.isConnectedOrConnecting();
+
+            if (isDeviceConnected) {
+                // Device is connected, put UI in loading state and start new BookLoader.
+                updateUiToLoadingState();
+                Bundle args = new Bundle();
+                args.putString(BUNDLE_QUERY, query);
+                getSupportLoaderManager().initLoader(bookLoaderId++, args, loaderCallbacks);
+            } else {
+                // Device is not connected, put UI in error state.
+                updateUiToErrorState(getString(R.string.alert_no_internet));
+            }
+
             searchViewMenuItem.collapseActionView();
             return false;
         }
 
         /**
-         * Do nothing when the search query text is changed.
+         * Called by {@link SearchView} when a user changes the text in the search box. Do nothing
+         * on this event.
          *
          * @param newText   {@link String} query changed by the user.
          * @return Whether this event was handled by this method.
@@ -84,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
         /**
          * Start an intent to open the device's browser when an item is clicked. The URL will be
          * the one associated with the {@link Book} object associated with the {@link View} object
-         * that was clicked..
+         * that was clicked.
          *
          * @param parent    The parent {@link AdapterView}.
          * @param view      The {@link View} object that was clicked.
@@ -102,7 +123,8 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * {@link androidx.loader.app.LoaderManager.LoaderCallbacks} for the {@link BookLoader} that is
-     * initialized when a search query is submitted.
+     * initialized when a search query is submitted. This object defines how to handle createLoader,
+     * loadFinished, and loaderReset events.
      */
     private final LoaderManager.LoaderCallbacks<List<Book>> loaderCallbacks = new LoaderManager.LoaderCallbacks<List<Book>>() {
 
@@ -144,7 +166,6 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onLoaderReset(@NonNull Loader<List<Book>> loader) {
-            updateUiToStartState();
         }
     };
 
@@ -175,9 +196,8 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * {@link AppCompatActivity} callback method that saves the instance state of the activity when
-     * the configuration changes. Data about the {@link ListView}, the app bar title, and the text
-     * that displays when the list is empty are stored within a {@link Bundle} object that persists
-     * during the configuration change.
+     * the configuration changes. It saves UI state and the book loader id within a {@link Bundle}
+     * object to persist it during the configuration change.
      *
      * @param outState {@link Bundle} object where data should be saved that will survive the
      *                 configuration change.
@@ -191,19 +211,14 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * {@link AppCompatActivity} callback method that restores the instance state of the activity
-     * after a configuration change. Data about the {@link ListView}, the app bar title, and the
-     * text that displays when the list is empty are restored from a {@link Bundle} object that
-     * survived the configuration change.
+     * after a configuration change. It restores the UI state and the book loader id from a
+     * {@link Bundle} object that survived the configuration change.
      *
      * @param savedInstanceState The {@link Bundle} object that was passed in onSaveInstanceState().
      */
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
-        Bundle userInterfaceBundle = savedInstanceState.getBundle(BUNDLE_USER_INTERFACE);
-        updateUiWithList(userInterfaceBundle.getParcelableArrayList(BUNDLE_BOOKS),
-                userInterfaceBundle.getString(BUNDLE_APP_BAR_TITLE),
-                userInterfaceBundle.getString(BUNDLE_ALERT_MESSAGE)
-        );
+        setUi(savedInstanceState.getBundle(BUNDLE_USER_INTERFACE));
         bookLoaderId = savedInstanceState.getInt(BUNDLE_BOOK_LOADER_ID);
         super.onRestoreInstanceState(savedInstanceState);
     }
@@ -278,6 +293,28 @@ public class MainActivity extends AppCompatActivity {
         alertTextView.setVisibility(View.INVISIBLE);
     }
 
+    private void updateUiToErrorState(String alertMessage) {
+
+        // Show ProgressBar.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        progressBar.setVisibility(View.INVISIBLE);
+
+        // Nullify ListView adapter.
+        ListView listView = findViewById(R.id.book_list_view);
+        listView.setAdapter(null);
+
+        // Update the app bar title.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle("");
+        }
+
+        // Hide the TextView that shows when the list is empty.
+        TextView alertTextView = findViewById(R.id.alert_text_view);
+        alertTextView.setText(alertMessage);
+        alertTextView.setVisibility(View.VISIBLE);
+    }
+
     /**
      * Updates the user interface of this activity to display a list of results. This entails hiding
      * the {@link ProgressBar}, setting up the {@link ListView}, updating the app bar title, and
@@ -313,37 +350,74 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Returns the attributes of the user interface in a {@link Bundle} object. Such attributes
-     * include the {@link List} of {@link Book} objects that were displayed in the {@link ListView},
-     * the {@link String} displayed in the app bar title, and the {@link String} displayed in the
-     * {@link TextView} that displays when the list is empty.
+     * include the state of the app bar, the {@link ListView}, the alert {@link TextView}, and the
+     * {@link ProgressBar}.
      *
      * @return The attributes of the user interface in a {@link Bundle} object
      */
     private Bundle getUi() {
         Bundle bundle = new Bundle();
 
-        // Put List object displayed on the ListView in the Bundle object.
-        ListView listView = findViewById(R.id.book_list_view);
-        BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
-        List<Book> books = new ArrayList<>();
-        if (bookAdapter != null) {
-            books = bookAdapter.getObjects();
-        }
-        bundle.putParcelableArrayList(BUNDLE_BOOKS, (ArrayList<? extends Parcelable>) books);
-
-        // Put app bar title in the Bundle object.
-        String actionBarTitle = getString(R.string.app_name);
+        // Put app bar title in the bundle.
+        String actionBarTitle = "";
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null && actionBar.getTitle() != null) {
             actionBarTitle = actionBar.getTitle().toString();
         }
         bundle.putString(BUNDLE_APP_BAR_TITLE, actionBarTitle);
 
-        // Put alert message in the Bundle object.
+        // Put List object displayed on the ListView in the bundle.
+        ListView listView = findViewById(R.id.book_list_view);
+        BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
+        List<Book> books = new ArrayList<>();
+        if (bookAdapter != null) {
+            books = bookAdapter.getObjects();
+        }
+        bundle.putParcelableArrayList(BUNDLE_LIST_OF_BOOKS, (ArrayList<? extends Parcelable>) books);
+
+        // Put alert message and alert message visibility in the bundle.
         TextView alertTextView = findViewById(R.id.alert_text_view);
         String alertMessage = alertTextView.getText().toString();
         bundle.putString(BUNDLE_ALERT_MESSAGE, alertMessage);
+        int alertMessageVisibility = alertTextView.getVisibility();
+        bundle.putInt(BUNDLE_ALERT_MESSAGE_VISIBILITY, alertMessageVisibility);
+
+        // Put ProgressBar visibility in the bundle.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        int progressBarVisibility = progressBar.getVisibility();
+        bundle.putInt(BUNDLE_PROGRESS_BAR_VISIBILITY, progressBarVisibility);
 
         return bundle;
+    }
+
+    /**
+     * Set the attributes of the user interface given a {@link Bundle} object. Such attributes
+     * include the state of the app bar, the {@link ListView}, the alert {@link TextView}, and the
+     * {@link ProgressBar}.
+     *
+     * @param bundle {@link Bundle} object containing the attributes of the user interface.
+     */
+    private void setUi(Bundle bundle) {
+
+        // Set the app bar title.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null && actionBar.getTitle() != null) {
+            actionBar.setTitle(bundle.getString(BUNDLE_APP_BAR_TITLE));
+        }
+
+        // Set List object displayed on ListView.
+        ListView listView = findViewById(R.id.book_list_view);
+        listView.setAdapter(new BookAdapter(this, bundle.getParcelableArrayList(BUNDLE_LIST_OF_BOOKS)));
+        listView.setOnItemClickListener(onItemClickListener);
+
+        // Set alert message and alert message visibility.
+        TextView alertTextView = findViewById(R.id.alert_text_view);
+        alertTextView.setText(bundle.getString(BUNDLE_ALERT_MESSAGE));
+        alertTextView.setVisibility(bundle.getInt(BUNDLE_ALERT_MESSAGE_VISIBILITY));
+        listView.setEmptyView(alertTextView);
+
+        // Set ProgressBar visibility.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        progressBar.setVisibility(bundle.getInt(BUNDLE_PROGRESS_BAR_VISIBILITY));
     }
 }
