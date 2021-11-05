@@ -15,10 +15,13 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
+import android.widget.HeaderViewListAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -92,10 +95,51 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+            // Do nothing if a footer view is clicked.
+            if (position >= parent.getCount() - 1) {
+                return;
+            }
+
             Book book = (Book) parent.getAdapter().getItem(position);
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setData(Uri.parse(book.getUrl()));
             startActivity(intent);
+        }
+    };
+
+    /**
+     * {@link android.widget.AbsListView.OnScrollListener} for the {@link ListView} in the activity
+     * layout. This object defines how to handle scrollStateChanged and onScroll events.
+     */
+    private final AbsListView.OnScrollListener onScrollListener = new AbsListView.OnScrollListener() {
+
+        /**
+         * Do nothing while the {@link ListView} is being scrolled.
+         *
+         * @param view          {@link View} whose scroll state is being reported.
+         * @param scrollState   int representing the current scroll state. 0 means SCROLL_STATE_IDLE
+         *                      and 1 means SCROLL_STATE_TOUCH_SCROLL.
+         */
+        @Override
+        public void onScrollStateChanged(AbsListView view, int scrollState) {
+
+        }
+
+        /**
+         * Called when the {@link ListView} has been scrolled.
+         *
+         * @param view              {@link View} whose scroll state is being reported.
+         * @param firstVisibleItem  The index of the first visible item.
+         * @param visibleItemCount  The number of visible items.
+         * @param totalItemCount    The number of items in the list adapter.
+         */
+        @Override
+        public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+            // TODO: Either add more items to the list or hide the loading footer when the last view is visible.
+            if (firstVisibleItem + visibleItemCount == totalItemCount) {
+                // Last item is visible here.
+            }
         }
     };
 
@@ -199,7 +243,8 @@ public class MainActivity extends AppCompatActivity {
         // Only need to save the ListView content if it is in the results state.
         if (uiState == 2) {
             ListView listView = findViewById(R.id.book_list_view);
-            BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
+            HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
+            BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
             List<Book> books = bookAdapter.getObjects();
             outState.putParcelableArrayList(BUNDLE_LIST_OF_BOOKS, (ArrayList<? extends Parcelable>) books);
         }
@@ -292,21 +337,26 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Initializes the user interface of the activity. This entails setting up the {@link ListView}
-     * with an empty {@link BookAdapter}, an {@link AdapterView.OnItemClickListener}, and an empty
-     * view.
+     * with a new {@link BookAdapter}, a {@link android.widget.AdapterView.OnItemClickListener}, an
+     * empty view, and a footer view.
      */
     private void initializeUi() {
         ListView listView = findViewById(R.id.book_list_view);
-        TextView alertTextView = findViewById(R.id.alert_text_view);
         listView.setAdapter(new BookAdapter(this, new ArrayList<>()));
         listView.setOnItemClickListener(onItemClickListener);
+
+        TextView alertTextView = findViewById(R.id.alert_text_view);
         listView.setEmptyView(alertTextView);
+
+        View loadingFooter = ((LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE)).inflate(R.layout.list_item_loading, null, false);
+        listView.addFooterView(loadingFooter);
     }
 
     /**
      * Updates the user interface of this activity to the start state. The app bar title will
-     * display the app name, the search button will be shown, the items in the {@link ListView} will
-     * be cleared, the alert {@link TextView} will display a start message, and the
+     * display the app name, the search button will be shown, the {@link ListView} will be hidden,
+     * the {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be
+     * disabled, the alert {@link TextView} will display a start message, and the
      * {@link ProgressBar} will be hidden.
      */
     private void updateUiToStartState() {
@@ -325,10 +375,12 @@ public class MainActivity extends AppCompatActivity {
             searchViewMenuItem.setVisible(true);
         }
 
-        // Remove items from ListView.
+        // Hide the ListView.
         ListView listView = findViewById(R.id.book_list_view);
-        BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
-        bookAdapter.clear();
+        listView.setVisibility(View.INVISIBLE);
+
+        // Disable scroll listener for ListView.
+        listView.setOnScrollListener(null);
 
         // Update the alert TextView.
         TextView alertTextView = findViewById(R.id.alert_text_view);
@@ -342,7 +394,8 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Updates the user interface of this activity to the loading state. The app bar title will be
-     * hidden, the search button will be hidden, the items in the {@link ListView} will be cleared,
+     * hidden, the search button will be hidden, the {@link ListView} will be hidden, the
+     * {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be disabled,
      * the alert {@link TextView} will be hidden, and the {@link ProgressBar} will be made visible.
      */
     private void updateUiToLoadingState() {
@@ -361,14 +414,15 @@ public class MainActivity extends AppCompatActivity {
             searchViewMenuItem.setVisible(false);
         }
 
-        // Remove items from ListView.
+        // Hide the ListView.
         ListView listView = findViewById(R.id.book_list_view);
-        BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
-        bookAdapter.clear();
+        listView.setVisibility(View.INVISIBLE);
+
+        // Disable scroll listener for ListView.
+        listView.setOnScrollListener(null);
 
         // Hide the alert TextView.
         TextView alertTextView = findViewById(R.id.alert_text_view);
-        alertTextView.setText(R.string.alert_start);
         alertTextView.setVisibility(View.INVISIBLE);
 
         // Show ProgressBar.
@@ -378,9 +432,10 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Updates the user interface of this activity to the list state. The app bar title will display
-     * the query, the search button will be shown, items will be added to the {@link ListView}, the
-     * alert {@link TextView} will show an alert message about the list being empty, and the
-     * {@link ProgressBar} will be hidden.
+     * the query, the search button will be shown, the {@link ListView} will be shown, items will be
+     * added to the {@link ListView}, the {@link android.widget.AbsListView.OnScrollListener} of the
+     * {@link ListView} will be disabled, the alert {@link TextView} will show an alert message about
+     * the list being empty, and the {@link ProgressBar} will be hidden.
      *
      * @param books {@link List} of {@link Book} objects to display.
      * @param query {@link String} containing the query.
@@ -401,10 +456,18 @@ public class MainActivity extends AppCompatActivity {
             searchViewMenuItem.setVisible(true);
         }
 
-        // Add new items to the ListView.
+        // Show the ListView.
         ListView listView = findViewById(R.id.book_list_view);
-        BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
+        listView.setVisibility(View.VISIBLE);
+
+        // Add new items to ListView.
+        HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
+        BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
+        bookAdapter.clear();
         bookAdapter.addAll(books);
+
+        // Enable scroll listener for ListView.
+        listView.setOnScrollListener(onScrollListener);
 
         // Update the alert TextView.
         TextView alertTextView = findViewById(R.id.alert_text_view);
@@ -418,7 +481,8 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Updates the user interface of this activity to the error state. The app bar title will be
-     * hidden, the search button will be shown, the items in the {@link ListView} will be cleared,
+     * hidden, the search button will be shown, the {@link ListView} will be hidden, the
+     * {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be disabled,
      * the alert {@link TextView} will show some alert message, and the {@link ProgressBar} will be
      * hidden.
      */
@@ -438,10 +502,12 @@ public class MainActivity extends AppCompatActivity {
             searchViewMenuItem.setVisible(true);
         }
 
-        // Remove items from ListView.
+        // Hide the ListView.
         ListView listView = findViewById(R.id.book_list_view);
-        BookAdapter bookAdapter = (BookAdapter) listView.getAdapter();
-        bookAdapter.clear();
+        listView.setVisibility(View.INVISIBLE);
+
+        // Disable scroll listener for ListView.
+        listView.setOnScrollListener(null);
 
         // Update the alert TextView.
         TextView alertTextView = findViewById(R.id.alert_text_view);

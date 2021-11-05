@@ -112,7 +112,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
 
         // Construct string url.
         query = query.replace(" ", "+");
-        String stringUrl = GOOGLE_BOOKS_API_URL + "?q=" + query;
+        String stringUrl = GOOGLE_BOOKS_API_URL + "?q=" + query + "&maxResults=40";
 
         // Construct URL object.
         URL url = null;
