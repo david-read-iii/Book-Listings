@@ -177,7 +177,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onLoadFinished(@NonNull Loader<List<Book>> loader, List<Book> data) {
             BookLoader bookLoader = (BookLoader) loader;
-            updateUiWithList(data, bookLoader.getQuery());
+            resetList();
+            addBooksToList(data);
+            updateUiToResultsState(bookLoader.getQuery());
         }
 
         /**
@@ -278,7 +280,9 @@ public class MainActivity extends AppCompatActivity {
             case 2:
                 // Restore to the results state.
                 List<Book> books = savedInstanceState.getParcelableArrayList(BUNDLE_LIST_OF_BOOKS);
-                updateUiWithList(books, query);
+                resetList();
+                addBooksToList(books);
+                updateUiToResultsState(query);
                 break;
             case 3:
                 // Restore to the error state.
@@ -307,32 +311,6 @@ public class MainActivity extends AppCompatActivity {
         searchView.setOnQueryTextListener(onQueryTextListener);
         searchView.setMaxWidth(Integer.MAX_VALUE);
         return true;
-    }
-
-    /**
-     * Starts a new {@link BookLoader} for a {@link String} query that the user specified. If the
-     * device is not connected to the Internet, the UI will be put in the error state.
-     *
-     * @param query {@link String} representing the query submitted.
-     */
-    private void startBookLoader(String query) {
-
-        // Check if device is connected to the Internet.
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-        boolean isDeviceConnected = activeNetworkInfo != null && activeNetworkInfo.isConnectedOrConnecting();
-
-        if (isDeviceConnected) {
-            // Device is connected, put UI in loading state and start new BookLoader.
-            updateUiToLoadingState();
-            MainActivity.this.query = query;
-            Bundle args = new Bundle();
-            args.putString(BUNDLE_QUERY, query);
-            LoaderManager.getInstance(MainActivity.this).initLoader(bookLoaderId++, args, loaderCallbacks);
-        } else {
-            // Device is not connected, put UI in error state.
-            updateUiToErrorState();
-        }
     }
 
     /**
@@ -432,15 +410,14 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Updates the user interface of this activity to the list state. The app bar title will display
-     * the query, the search button will be shown, the {@link ListView} will be shown, items will be
-     * added to the {@link ListView}, the {@link android.widget.AbsListView.OnScrollListener} of the
-     * {@link ListView} will be disabled, the alert {@link TextView} will show an alert message about
-     * the list being empty, and the {@link ProgressBar} will be hidden.
+     * the query, the search button will be shown, the {@link ListView} will be shown, the
+     * {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be disabled,
+     * the alert {@link TextView} will show an alert message about the list being empty, and the
+     * {@link ProgressBar} will be hidden.
      *
-     * @param books {@link List} of {@link Book} objects to display.
      * @param query {@link String} containing the query.
      */
-    private void updateUiWithList(List<Book> books, String query) {
+    private void updateUiToResultsState(String query) {
 
         // Set global UI state.
         uiState = 2;
@@ -459,12 +436,6 @@ public class MainActivity extends AppCompatActivity {
         // Show the ListView.
         ListView listView = findViewById(R.id.book_list_view);
         listView.setVisibility(View.VISIBLE);
-
-        // Add new items to ListView.
-        HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
-        BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
-        bookAdapter.clear();
-        bookAdapter.addAll(books);
 
         // Enable scroll listener for ListView.
         listView.setOnScrollListener(onScrollListener);
@@ -517,5 +488,53 @@ public class MainActivity extends AppCompatActivity {
         // Show ProgressBar.
         ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
         progressBar.setVisibility(View.INVISIBLE);
+    }
+
+    /**
+     * Starts a new {@link BookLoader} for a {@link String} query that the user specified. If the
+     * device is not connected to the Internet, the UI will be put in the error state.
+     *
+     * @param query {@link String} representing the query submitted.
+     */
+    private void startBookLoader(String query) {
+
+        // Check if device is connected to the Internet.
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        boolean isDeviceConnected = activeNetworkInfo != null && activeNetworkInfo.isConnectedOrConnecting();
+
+        if (isDeviceConnected) {
+            // Device is connected, put UI in loading state and start new BookLoader.
+            updateUiToLoadingState();
+            MainActivity.this.query = query;
+            Bundle args = new Bundle();
+            args.putString(BUNDLE_QUERY, query);
+            LoaderManager.getInstance(MainActivity.this).initLoader(bookLoaderId++, args, loaderCallbacks);
+        } else {
+            // Device is not connected, put UI in error state.
+            updateUiToErrorState();
+        }
+    }
+
+    /**
+     * Adds an {@link List} of {@link Book} objects to the {@link ListView} adapter.
+     *
+     * @param books {@link List} to add to the adapter.
+     */
+    private void addBooksToList(List<Book> books) {
+        ListView listView = findViewById(R.id.book_list_view);
+        HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
+        BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
+        bookAdapter.addAll(books);
+    }
+
+    /**
+     * Removes all objects from the {@link ListView} adapter.
+     */
+    private void resetList() {
+        ListView listView = findViewById(R.id.book_list_view);
+        HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
+        BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
+        bookAdapter.clear();
     }
 }
