@@ -29,24 +29,31 @@ import java.util.List;
 public class BookLoader extends AsyncTaskLoader<List<Book>> {
 
     /**
-     * {@link String} specifying the string url for accessing the Google Books API.
+     * {@link String} specifying the base Google Books API URL.
      */
-    private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes";
+    private static final String BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 
     /**
-     * {@link String} specifying the query.
+     * {@link String} specifying the query for the API request.
      */
-    private String query;
+    private final String query;
+
+    /**
+     * int specifying the start index for the API request.
+     */
+    private final int startIndex;
 
     /**
      * Constructs a new {@link BookLoader} object.
      *
-     * @param context {@link Context} for the superclass constructor.
-     * @param query   {@link String} specifying what to query from Google Books API.
+     * @param context    {@link Context} for the superclass constructor.
+     * @param query      {@link String} specifying the query for the API request.
+     * @param startIndex int specifying the start index for the API request.
      */
-    public BookLoader(@NonNull Context context, String query) {
+    public BookLoader(@NonNull Context context, String query, int startIndex) {
         super(context);
         this.query = query;
+        this.startIndex = startIndex;
     }
 
     @Override
@@ -56,37 +63,18 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
     }
 
     /**
-     * Fetch book data from Google Books API on a background thread.
+     * Callback method invoked to perform the actual load on a worker thread and return the result.
+     * It fetches book data from the Google Books API that matches the query and start index
+     * parameters and returns it in a {@link List} of {@link Book} objects.
      *
-     * @return A {@link List} of {@link Book} objects returned from the network request.
+     * @return A {@link List} of {@link Book} objects returned by the API request.
      */
     @Nullable
     @Override
     public List<Book> loadInBackground() {
-        return fetchBooksFromGoogleBooksApi(query);
-    }
-
-    /**
-     * Returns a {@link String} containing the query.
-     *
-     * @return {@link String} containing the query.
-     */
-    public String getQuery() {
-        return query;
-    }
-
-    /**
-     * Fetches book data from the Google Books API that match the {@link String} query passed into
-     * this method and returns them as a {@link List} of {@link Book} objects.
-     *
-     * @param query {@link String} specifying what type of books the Google Books API should query.
-     * @return A {@link List} of {@link Book} objects from the Google Books API that match the
-     * query.
-     */
-    private static List<Book> fetchBooksFromGoogleBooksApi(String query) {
 
         // Construct URL object for network request.
-        URL url = constructQueryUrl(query);
+        URL url = constructQueryUrl(query, startIndex);
 
         // Perform network request.
         String json = null;
@@ -101,18 +89,37 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
     }
 
     /**
+     * Returns a {@link String} representing the query used for the API request.
+     *
+     * @return {@link String} representing the query used for the API request.
+     */
+    public String getQuery() {
+        return query;
+    }
+
+    /**
+     * Returns an int representing the start index used for the API request.
+     *
+     * @return int representing the start index used for the API request.
+     */
+    public int getStartIndex() {
+        return startIndex;
+    }
+
+    /**
      * Returns a {@link URL} object that queries the Google Books API given a {@link String}
      * specifying the query.
      *
-     * @param query {@link String} specifying what books to query.
+     * @param query      {@link String} specifying the query for the API request.
+     * @param startIndex int specifying the start index for the API request.
      * @return A {@link URL} object that queries the Google Books API given a {@link String}
      * specifying the query.
      */
-    private static URL constructQueryUrl(String query) {
+    private static URL constructQueryUrl(String query, int startIndex) {
 
         // Construct string url.
         query = query.replace(" ", "+");
-        String stringUrl = GOOGLE_BOOKS_API_URL + "?q=" + query + "&maxResults=40";
+        String stringUrl = BASE_URL + "?q=" + query + "&startIndex=" + startIndex + "&maxResults=40";
 
         // Construct URL object.
         URL url = null;

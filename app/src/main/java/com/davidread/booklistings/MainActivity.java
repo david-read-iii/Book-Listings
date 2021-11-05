@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String BUNDLE_QUERY = "query";
     private static final String BUNDLE_BOOK_LOADER_ID = "book_loader_id";
     private static final String BUNDLE_LIST_OF_BOOKS = "list_of_books";
+    private static final String BUNDLE_START_INDEX = "start_index";
 
     /**
      * {@link androidx.appcompat.widget.SearchView.OnQueryTextListener} for the {@link SearchView}
@@ -59,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public boolean onQueryTextSubmit(String query) {
-            startBookLoader(query);
+            startBookLoader(query, 0);
             searchViewMenuItem.collapseActionView();
             return false;
         }
@@ -136,9 +137,8 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-            // TODO: Either add more items to the list or hide the loading footer when the last view is visible.
             if (firstVisibleItem + visibleItemCount == totalItemCount) {
-                // Last item is visible here.
+                startBookLoader(query, totalItemCount);
             }
         }
     };
@@ -161,10 +161,12 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public Loader<List<Book>> onCreateLoader(int id, @Nullable Bundle args) {
             String query = "";
+            int startIndex = 0;
             if (args != null) {
                 query = args.getString(BUNDLE_QUERY);
+                startIndex = args.getInt(BUNDLE_START_INDEX);
             }
-            return new BookLoader(MainActivity.this, query);
+            return new BookLoader(MainActivity.this, query, startIndex);
         }
 
         /**
@@ -177,7 +179,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onLoadFinished(@NonNull Loader<List<Book>> loader, List<Book> data) {
             BookLoader bookLoader = (BookLoader) loader;
-            resetList();
+            if (bookLoader.getStartIndex() == 0) {
+                resetList();
+            }
             addBooksToList(data);
             updateUiToResultsState(bookLoader.getQuery());
         }
@@ -275,7 +279,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case 1:
                 // Restore to the loading state.
-                startBookLoader(query);
+                startBookLoader(query, 0);
                 break;
             case 2:
                 // Restore to the results state.
@@ -491,12 +495,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Starts a new {@link BookLoader} for a {@link String} query that the user specified. If the
-     * device is not connected to the Internet, the UI will be put in the error state.
+     * Starts a new {@link BookLoader} to fetch book data from the Google Books API matching the
+     * given query and start index parameters. If the device is not connected to the Internet, the
+     * {@link BookLoader} will not be started and the UI will be put in the error state.
      *
-     * @param query {@link String} representing the query submitted.
+     * @param query      {@link String} representing the query.
+     * @param startIndex int representing the start index.
      */
-    private void startBookLoader(String query) {
+    private void startBookLoader(String query, int startIndex) {
 
         // Check if device is connected to the Internet.
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -509,6 +515,7 @@ public class MainActivity extends AppCompatActivity {
             MainActivity.this.query = query;
             Bundle args = new Bundle();
             args.putString(BUNDLE_QUERY, query);
+            args.putInt(BUNDLE_START_INDEX, startIndex);
             LoaderManager.getInstance(MainActivity.this).initLoader(bookLoaderId++, args, loaderCallbacks);
         } else {
             // Device is not connected, put UI in error state.
