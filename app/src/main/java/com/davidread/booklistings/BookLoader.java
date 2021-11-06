@@ -15,31 +15,47 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * {@link BookLoader} is a utility class that provides an {@link AsyncTaskLoader} for requesting
- * and retrieving Google Book API data via a network request on a background thread.
+ * and retrieving data from the Google Books API. More specifically, it allows you to perform a
+ * volumes search for book data, where you can specify a query term and a start index for
+ * pagination.
  */
 public class BookLoader extends AsyncTaskLoader<List<Book>> {
 
     /**
-     * {@link String} specifying the base Google Books API URL.
+     * {@link String} specifying the base Google Books API URL for performing a volumes search.
      */
     private static final String BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 
     /**
-     * {@link String} specifying the query for the API request.
+     * {@link String} URL parameter specifying the maximum number of results the volumes search
+     * should return.
+     */
+    private static final String MAX_RESULTS_URL_PARAMETER = "maxResults=40";
+
+    /**
+     * {@link String} URL parameter specifying what specific JSON fields the volumes search should
+     * return.
+     */
+    private static final String FIELDS_URL_PARAMETER = "fields=items(volumeInfo/title,volumeInfo/authors,volumeInfo/infoLink)";
+
+    /**
+     * {@link String} specifying the query term for the volumes search.
      */
     private final String query;
 
     /**
-     * int specifying the start index for the API request.
+     * int specifying the start index for the volumes search.
      */
     private final int startIndex;
 
@@ -47,8 +63,8 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
      * Constructs a new {@link BookLoader} object.
      *
      * @param context    {@link Context} for the superclass constructor.
-     * @param query      {@link String} specifying the query for the API request.
-     * @param startIndex int specifying the start index for the API request.
+     * @param query      {@link String} specifying the query term for the volumes search.
+     * @param startIndex int specifying the start index for the volumes search.
      */
     public BookLoader(@NonNull Context context, String query, int startIndex) {
         super(context);
@@ -56,6 +72,10 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
         this.startIndex = startIndex;
     }
 
+    /**
+     * Callback method invoked directly before the actual load is executed. Call forceLoad() to
+     * start the loader.
+     */
     @Override
     protected void onStartLoading() {
         super.onStartLoading();
@@ -64,10 +84,12 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
 
     /**
      * Callback method invoked to perform the actual load on a worker thread and return the result.
-     * It fetches book data from the Google Books API that matches the query and start index
-     * parameters and returns it in a {@link List} of {@link Book} objects.
+     * It performs a volumes search on the Google Books API given the parameters used to construct
+     * this {@link BookLoader}, retrieves that data, and returns it in a {@link List} of
+     * {@link Book} objects.
      *
-     * @return A {@link List} of {@link Book} objects returned by the API request.
+     * @return A {@link List} of {@link Book} objects returned from the Google Books API volumes
+     * search.
      */
     @Nullable
     @Override
@@ -89,37 +111,44 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
     }
 
     /**
-     * Returns a {@link String} representing the query used for the API request.
+     * Returns a {@link String} representing the query term used for the Google Books API volumes
+     * search.
      *
-     * @return {@link String} representing the query used for the API request.
+     * @return {@link String} representing the query term used for the Google Books API volumes
+     * search.
      */
     public String getQuery() {
         return query;
     }
 
     /**
-     * Returns an int representing the start index used for the API request.
+     * Returns an int representing the start index used for the Google Books API volumes search.
      *
-     * @return int representing the start index used for the API request.
+     * @return int representing the start index used for the Google Books API volumes search.
      */
     public int getStartIndex() {
         return startIndex;
     }
 
     /**
-     * Returns a {@link URL} object that queries the Google Books API given a {@link String}
-     * specifying the query.
+     * Returns a {@link URL} object for performing a Google Books API volumes search given a query
+     * term and start index.
      *
-     * @param query      {@link String} specifying the query for the API request.
-     * @param startIndex int specifying the start index for the API request.
-     * @return A {@link URL} object that queries the Google Books API given a {@link String}
-     * specifying the query.
+     * @param query      {@link String} representing the query term.
+     * @param startIndex int representing the start index.
+     * @return {@link URL} object for performing a Google Books API volumes search.
      */
     private static URL constructQueryUrl(String query, int startIndex) {
 
-        // Construct string url.
-        query = query.replace(" ", "+");
-        String stringUrl = BASE_URL + "?q=" + query + "&startIndex=" + startIndex + "&maxResults=40";
+        // Construct string URL.
+        String stringUrl = "";
+        try {
+            String queryUrlParameter = "q=" + URLEncoder.encode(query, StandardCharsets.UTF_8.name());
+            String startIndexUrlParameter = "startIndex=" + startIndex;
+            stringUrl = BASE_URL + "?" + queryUrlParameter + "&" + startIndexUrlParameter + "&" + MAX_RESULTS_URL_PARAMETER + "&" + FIELDS_URL_PARAMETER;
+        } catch (UnsupportedEncodingException e) {
+            Log.e(BookLoader.class.getSimpleName(), "Error encoding query term for string URL", e);
+        }
 
         // Construct URL object.
         URL url = null;
@@ -197,35 +226,74 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
     }
 
     /**
-     * Returns a {@link List} of {@link Book} objects parsed from a {@link String} JSON response
-     * received from the Google Books API.
+     * Parses a {@link String} JSON response received from a Google Books API volumes search and
+     * returns it in a {@link List} of {@link Book} objects.
      *
-     * @param json {@link String} JSON response received from Google Books API.
-     * @return {@link List} of {@link Book} objects parsed from a {@link String} JSON response.
+     * @param json {@link String} JSON response from a Google Books API volumes search.
+     * @return {@link List} of {@link Book} objects parsed from a JSON response.
      */
     private static List<Book> extractBooksFromJson(String json) {
 
         List<Book> books = new ArrayList<>();
 
+        // Get items JSON array containing the results.
+        JSONArray itemsJsonArray = null;
         try {
             JSONObject rootJsonObject = new JSONObject(json);
-            JSONArray itemsJsonArray = rootJsonObject.getJSONArray("items");
-            for (int itemsIndex = 0; itemsIndex < itemsJsonArray.length(); itemsIndex++) {
+            itemsJsonArray = rootJsonObject.getJSONArray("items");
+        } catch (JSONException e) {
+            Log.e(BookLoader.class.getSimpleName(), "Error parsing items JSON array", e);
+        }
 
-                JSONObject volumeInfoJsonObject = itemsJsonArray.getJSONObject(itemsIndex).getJSONObject("volumeInfo");
+        // Return early if a null items JSON array is parsed.
+        if (itemsJsonArray == null) {
+            return books;
+        }
 
-                String title = volumeInfoJsonObject.getString("title");
+        // Iterate through each item in the items JSON array.
+        for (int itemsIndex = 0; itemsIndex < itemsJsonArray.length(); itemsIndex++) {
+
+            // Get the volumeInfo JSON object for this result.
+            JSONObject volumeInfoJsonObject = null;
+            try {
+                volumeInfoJsonObject = itemsJsonArray.getJSONObject(itemsIndex).getJSONObject("volumeInfo");
+            } catch (JSONException e) {
+                Log.e(BookLoader.class.getSimpleName(), "Error parsing the volumeInfo JSON object for the item with index " + itemsIndex, e);
+            }
+
+            // Skip to the next item in the items JSON array if a null volumeInfo JSON object is parsed.
+            if (volumeInfoJsonObject == null) {
+                continue;
+            }
+
+            // Get the properties for this result.
+            String title = "";
+            try {
+                title = volumeInfoJsonObject.getString("title");
+            } catch (JSONException e) {
+                Log.e(BookLoader.class.getSimpleName(), "Error parsing the title JSON property for the item with index " + itemsIndex, e);
+            }
+
+            String[] authors = new String[]{""};
+            try {
                 JSONArray authorsJsonArray = volumeInfoJsonObject.getJSONArray("authors");
-                String[] authors = new String[authorsJsonArray.length()];
+                authors = new String[authorsJsonArray.length()];
                 for (int authorsIndex = 0; authorsIndex < authorsJsonArray.length(); authorsIndex++) {
                     authors[authorsIndex] = authorsJsonArray.getString(authorsIndex);
                 }
-                String url = volumeInfoJsonObject.getString("infoLink");
-
-                books.add(new Book(title, authors, url));
+            } catch (JSONException e) {
+                Log.e(BookLoader.class.getSimpleName(), "Error parsing the authors JSON property for the item with index " + itemsIndex, e);
             }
-        } catch (JSONException e) {
-            Log.e(BookLoader.class.getSimpleName(), "Error parsing JSON response", e);
+
+            String url = "";
+            try {
+                url = volumeInfoJsonObject.getString("infoLink");
+            } catch (JSONException e) {
+                Log.e(BookLoader.class.getSimpleName(), "Error parsing the url JSON property for the item with index " + itemsIndex, e);
+            }
+
+            // Add a new Book object for this result.
+            books.add(new Book(title, authors, url));
         }
 
         return books;
