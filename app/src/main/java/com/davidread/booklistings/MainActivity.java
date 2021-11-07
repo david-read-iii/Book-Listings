@@ -19,6 +19,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.webkit.URLUtil;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.HeaderViewListAdapter;
@@ -52,14 +53,17 @@ public class MainActivity extends AppCompatActivity {
     private final SearchView.OnQueryTextListener onQueryTextListener = new SearchView.OnQueryTextListener() {
 
         /**
-         * Called by {@link SearchView} when a user submits a query. When this happens, start a new
-         * {@link BookLoader} and collapse the search box.
+         * Called by {@link SearchView} when a user submits a query. When this happens, set the
+         * global query variable, start a new {@link BookLoader} for the query, and collapse the
+         * search box.
          *
          * @param query {@link String} query submitted by the user.
          * @return Whether this event was handled by this method.
          */
         @Override
         public boolean onQueryTextSubmit(String query) {
+            MainActivity.this.query = query;
+            MainActivity.this.queryHasMoreResults = true;
             startBookLoader(query, 0);
             searchViewMenuItem.collapseActionView();
             return false;
@@ -102,7 +106,15 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            // Get Book object for the clicked view.
             Book book = (Book) parent.getAdapter().getItem(position);
+
+            // Do nothing if the Book object has an invalid URL.
+            if (!URLUtil.isValidUrl(book.getUrl())) {
+                return;
+            }
+
+            // Start intent for Book object.
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setData(Uri.parse(book.getUrl()));
             startActivity(intent);
@@ -128,7 +140,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /**
-         * Called when the {@link ListView} has been scrolled.
+         * Called when the {@link ListView} has been scrolled. When this happens, check if the
+         * {@link ListView} is at the end of the list and if the query has more results. If so,
+         * start a new {@link BookLoader} for more query results.
          *
          * @param view              {@link View} whose scroll state is being reported.
          * @param firstVisibleItem  The index of the first visible item.
@@ -137,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-            if (firstVisibleItem + visibleItemCount == totalItemCount) {
+            if (firstVisibleItem + visibleItemCount == totalItemCount && queryHasMoreResults) {
                 startBookLoader(query, totalItemCount - 1);
             }
         }
@@ -160,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
         @NonNull
         @Override
         public Loader<List<Book>> onCreateLoader(int id, @Nullable Bundle args) {
-            String query = "";
+            String query = null;
             int startIndex = 0;
             if (args != null) {
                 query = args.getString(BUNDLE_QUERY);
@@ -182,13 +196,15 @@ public class MainActivity extends AppCompatActivity {
             if (bookLoader.getStartIndex() == 0) {
                 resetList();
             }
+            if (data.isEmpty()) {
+                queryHasMoreResults = false;
+            }
             addBooksToList(data);
             updateUiToResultsState(bookLoader.getQuery());
         }
 
         /**
-         * Called by {@link LoaderManager} when a {@link BookLoader} needs to be reset. It simply
-         * resets the UI to a start state.
+         * Called by {@link LoaderManager} when a {@link BookLoader} needs to be reset.
          *
          * @param loader    {@link Loader} object to be reset.
          */
@@ -217,6 +233,11 @@ public class MainActivity extends AppCompatActivity {
      * int representing the id of the most recently initialized {@link BookLoader} object.
      */
     private int bookLoaderId;
+
+    /**
+     * boolean representing whether the query has more results that can be fetched.
+     */
+    private boolean queryHasMoreResults;
 
     /**
      * {@link AppCompatActivity} callback method that inflates the activity layout and initializes
@@ -335,163 +356,107 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Updates the user interface of this activity to the start state. The app bar title will
-     * display the app name, the search button will be shown, the {@link ListView} will be hidden,
-     * the {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be
-     * disabled, the alert {@link TextView} will display a start message, and the
-     * {@link ProgressBar} will be hidden.
+     * Updates the user interface of this activity. This entails updating the text of the app bar
+     * title, the visibility of the search button in the app bar, the visibility of the list view,
+     * the text and visibility of the alert text view, and the visibility of the progress bar.
+     *
+     * @param appBarTitle             {@link String} to be set on the app bar title.
+     * @param searchButtonVisibility  boolean determining the visibility of the search button in
+     *                                the app bar.
+     * @param listViewVisibility      int determining the visibility of the list view.
+     * @param alertTextViewText       {@link String} to set on the alert text view.
+     * @param alertTextViewVisibility int determining the visibility of the alert text view.
+     * @param progressBarVisibility   int determining the visibility of the progress bar.
+     */
+    private void updateUi(String appBarTitle, boolean searchButtonVisibility,
+                          int listViewVisibility, String alertTextViewText,
+                          int alertTextViewVisibility, int progressBarVisibility) {
+
+        // Update the app bar title text.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle(appBarTitle);
+        }
+
+        // Update the visibility of the search button in the app bar.
+        if (searchViewMenuItem != null) {
+            searchViewMenuItem.setVisible(searchButtonVisibility);
+        }
+
+        // Update the visibility of the list view.
+        ListView listView = findViewById(R.id.book_list_view);
+        listView.setVisibility(listViewVisibility);
+
+        // Update the alert text view text and visibility.
+        TextView alertTextView = findViewById(R.id.alert_text_view);
+        alertTextView.setText(alertTextViewText);
+        alertTextView.setVisibility(alertTextViewVisibility);
+
+        // Update the progress bar visibility.
+        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
+        progressBar.setVisibility(progressBarVisibility);
+    }
+
+    /**
+     * Updates the user interface of this activity to the start state.
      */
     private void updateUiToStartState() {
-
-        // Set global UI state.
         uiState = 0;
-
-        // Update the app bar title.
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setTitle(getString(R.string.app_name));
-        }
-
-        // Show the search button.
-        if (searchViewMenuItem != null) {
-            searchViewMenuItem.setVisible(true);
-        }
-
-        // Hide the ListView.
-        ListView listView = findViewById(R.id.book_list_view);
-        listView.setVisibility(View.INVISIBLE);
-
-        // Disable scroll listener for ListView.
-        listView.setOnScrollListener(null);
-
-        // Update the alert TextView.
-        TextView alertTextView = findViewById(R.id.alert_text_view);
-        alertTextView.setText(getString(R.string.alert_start));
-        alertTextView.setVisibility(View.VISIBLE);
-
-        // Hide ProgressBar.
-        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
-        progressBar.setVisibility(View.INVISIBLE);
+        enableListLoading(false);
+        updateUi(getString(R.string.app_name),
+                true,
+                View.INVISIBLE,
+                getString(R.string.alert_start),
+                View.VISIBLE,
+                View.INVISIBLE
+        );
     }
 
     /**
-     * Updates the user interface of this activity to the loading state. The app bar title will be
-     * hidden, the search button will be hidden, the {@link ListView} will be hidden, the
-     * {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be disabled,
-     * the alert {@link TextView} will be hidden, and the {@link ProgressBar} will be made visible.
+     * Updates the user interface of this activity to the loading state.
      */
     private void updateUiToLoadingState() {
-
-        // Set global UI state.
         uiState = 1;
-
-        // Update the app bar title.
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setTitle(getString(R.string.app_name));
-        }
-
-        // Hide the search button.
-        if (searchViewMenuItem != null) {
-            searchViewMenuItem.setVisible(false);
-        }
-
-        // Hide the ListView.
-        ListView listView = findViewById(R.id.book_list_view);
-        listView.setVisibility(View.INVISIBLE);
-
-        // Disable scroll listener for ListView.
-        listView.setOnScrollListener(null);
-
-        // Hide the alert TextView.
-        TextView alertTextView = findViewById(R.id.alert_text_view);
-        alertTextView.setVisibility(View.INVISIBLE);
-
-        // Show ProgressBar.
-        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
-        progressBar.setVisibility(View.VISIBLE);
+        enableListLoading(false);
+        updateUi(getString(R.string.app_name),
+                false,
+                View.INVISIBLE,
+                "",
+                View.INVISIBLE,
+                View.VISIBLE
+        );
     }
 
     /**
-     * Updates the user interface of this activity to the list state. The app bar title will display
-     * the query, the search button will be shown, the {@link ListView} will be shown, the
-     * {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be disabled,
-     * the alert {@link TextView} will show an alert message about the list being empty, and the
-     * {@link ProgressBar} will be hidden.
+     * Updates the user interface of this activity to the results state.
      *
-     * @param query {@link String} containing the query.
+     * @param query {@link String} containing the query term.
      */
     private void updateUiToResultsState(String query) {
-
-        // Set global UI state.
         uiState = 2;
-
-        // Update the app bar title.
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setTitle(getString(R.string.results, query));
-        }
-
-        // Show the search button.
-        if (searchViewMenuItem != null) {
-            searchViewMenuItem.setVisible(true);
-        }
-
-        // Show the ListView.
-        ListView listView = findViewById(R.id.book_list_view);
-        listView.setVisibility(View.VISIBLE);
-
-        // Enable scroll listener for ListView.
-        listView.setOnScrollListener(onScrollListener);
-
-        // Update the alert TextView.
-        TextView alertTextView = findViewById(R.id.alert_text_view);
-        alertTextView.setText(getString(R.string.alert_list_empty));
-        alertTextView.setVisibility(View.INVISIBLE);
-
-        // Hide ProgressBar.
-        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
-        progressBar.setVisibility(View.INVISIBLE);
+        enableListLoading(true);
+        updateUi(getString(R.string.results, query),
+                true,
+                View.VISIBLE,
+                getString(R.string.alert_list_empty),
+                View.INVISIBLE,
+                View.INVISIBLE
+        );
     }
 
     /**
-     * Updates the user interface of this activity to the error state. The app bar title will be
-     * hidden, the search button will be shown, the {@link ListView} will be hidden, the
-     * {@link android.widget.AbsListView.OnScrollListener} of the {@link ListView} will be disabled,
-     * the alert {@link TextView} will show some alert message, and the {@link ProgressBar} will be
-     * hidden.
+     * Updates the user interface of this activity to the error state.
      */
     private void updateUiToErrorState() {
-
-        // Set global UI state.
         uiState = 3;
-
-        // Update the app bar title.
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setTitle(getString(R.string.app_name));
-        }
-
-        // Show the search button.
-        if (searchViewMenuItem != null) {
-            searchViewMenuItem.setVisible(true);
-        }
-
-        // Hide the ListView.
-        ListView listView = findViewById(R.id.book_list_view);
-        listView.setVisibility(View.INVISIBLE);
-
-        // Disable scroll listener for ListView.
-        listView.setOnScrollListener(null);
-
-        // Update the alert TextView.
-        TextView alertTextView = findViewById(R.id.alert_text_view);
-        alertTextView.setText(getString(R.string.alert_no_internet));
-        alertTextView.setVisibility(View.VISIBLE);
-
-        // Show ProgressBar.
-        ProgressBar progressBar = findViewById(R.id.loading_progress_bar);
-        progressBar.setVisibility(View.INVISIBLE);
+        enableListLoading(false);
+        updateUi(getString(R.string.app_name),
+                true,
+                View.INVISIBLE,
+                getString(R.string.alert_no_internet),
+                View.VISIBLE,
+                View.INVISIBLE
+        );
     }
 
     /**
@@ -511,8 +476,11 @@ public class MainActivity extends AppCompatActivity {
 
         if (isDeviceConnected) {
             // Device is connected, put UI in loading state and start new BookLoader.
-            updateUiToLoadingState();
-            MainActivity.this.query = query;
+            if (startIndex == 0) {
+                updateUiToLoadingState();
+            } else {
+                enableListLoading(false);
+            }
             Bundle args = new Bundle();
             args.putString(BUNDLE_QUERY, query);
             args.putInt(BUNDLE_START_INDEX, startIndex);
@@ -543,5 +511,31 @@ public class MainActivity extends AppCompatActivity {
         HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
         BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
         bookAdapter.clear();
+    }
+
+    /**
+     * Enables the scroll listener and loading footer in the list view when true.
+     *
+     * @param enabled Whether the scroll listener and loading footer will be enabled in the list
+     *                view.
+     */
+    private void enableListLoading(boolean enabled) {
+        ListView listView = findViewById(R.id.book_list_view);
+        View loadingFooter = ((LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE)).inflate(R.layout.list_item_loading, null, false);
+        HeaderViewListAdapter headerViewListAdapter = (HeaderViewListAdapter) listView.getAdapter();
+        BookAdapter bookAdapter = (BookAdapter) headerViewListAdapter.getWrappedAdapter();
+        boolean hasLoadingFooter = headerViewListAdapter.getCount() - bookAdapter.getCount() > 0;
+
+        if (enabled) {
+            listView.setOnScrollListener(onScrollListener);
+            if (!hasLoadingFooter) {
+                listView.addFooterView(loadingFooter);
+            }
+        } else {
+            listView.setOnScrollListener(null);
+            if (hasLoadingFooter) {
+                listView.removeFooterView(loadingFooter);
+            }
+        }
     }
 }
