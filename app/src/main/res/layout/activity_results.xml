@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".ResultsActivity">
 
     <ListView
         android:id="@+id/book_list_view"
@@ -12,16 +12,12 @@
         android:listSelector="@drawable/list_item" />
 
     <TextView
-        android:id="@+id/alert_text_view"
+        android:id="@+id/empty_book_list_text_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:textAppearance="?android:textAppearanceMedium" />
-
-    <ProgressBar
-        android:id="@+id/loading_progress_bar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true" />
+        android:text="@string/list_empty"
+        android:textAppearance="?android:textAppearanceMedium"
+        android:visibility="invisible" />
 
 </RelativeLayout>

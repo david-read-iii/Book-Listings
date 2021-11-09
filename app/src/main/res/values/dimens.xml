@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="list_item_padding">16dp</dimen>
+    <dimen name="dialog_padding">16dp</dimen>
+    <dimen name="dialog_loading_progress_bar_right_margin">16dp</dimen>
 </resources>

@@ -1,8 +1,8 @@
 <resources>
     <string name="app_name">Book Listings</string>
     <string name="action_search">Search</string>
-    <string name="results">Results for \"%1$s\"</string>
-    <string name="alert_start">To get started, tap the search icon</string>
-    <string name="alert_list_empty">No books found</string>
-    <string name="alert_no_internet">No Internet connection</string>
+    <string name="app_bar_title_results">Results for \"%1$s\"</string>
+    <string name="start_message">To get started, tap the search icon</string>
+    <string name="list_empty">No books found</string>
+    <string name="dialog_loading_message">Loading books…</string>
 </resources>
