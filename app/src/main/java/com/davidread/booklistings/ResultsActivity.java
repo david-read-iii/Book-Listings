@@ -184,7 +184,7 @@ public class ResultsActivity extends AppCompatActivity {
                 loadingAlertDialog.hide();
             }
 
-            // Do nothing if this BookLoader has already added its load to the list.
+            // Do nothing if this BookLoader has already added its load to the ListView.
             BookLoader bookLoader = (BookLoader) loader;
             ListView listView = findViewById(R.id.book_list_view);
             if (bookLoader.getStartIndex() != listView.getCount()) {

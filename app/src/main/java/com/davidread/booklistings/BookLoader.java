@@ -60,6 +60,11 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
     private final int startIndex;
 
     /**
+     * {@link List} returned from the Google Books API volumes search.
+     */
+    private List<Book> books;
+
+    /**
      * Constructs a new {@link BookLoader} object.
      *
      * @param context    {@link Context} for the superclass constructor.
@@ -70,6 +75,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
         super(context);
         this.query = query;
         this.startIndex = startIndex;
+        this.books = null;
     }
 
     /**
@@ -84,9 +90,9 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
 
     /**
      * Callback method invoked to perform the actual load on a worker thread and return the result.
-     * It performs a volumes search on the Google Books API given the parameters used to construct
-     * this {@link BookLoader}, retrieves that data, and returns it in a {@link List} of
-     * {@link Book} objects.
+     * It returns a {@link List} of {@link Book} objects fetched for a Google Books API volumes
+     * search. First, it'll try to return a {@link List} saved in this {@link BookLoader} object.
+     * If no such list exists, it will perform a network request to fetch the appropriate data.
      *
      * @return A {@link List} of {@link Book} objects returned from the Google Books API volumes
      * search.
@@ -94,6 +100,11 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
     @Nullable
     @Override
     public List<Book> loadInBackground() {
+
+        // If a List is saved in this BookLoader, return it and do not perform a network request.
+        if (books != null) {
+            return books;
+        }
 
         // Construct URL object for network request.
         URL url = constructQueryUrl(query, startIndex);
@@ -138,7 +149,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
      * @param startIndex int representing the start index.
      * @return {@link URL} object for performing a Google Books API volumes search.
      */
-    private static URL constructQueryUrl(String query, int startIndex) {
+    private URL constructQueryUrl(String query, int startIndex) {
 
         // Construct string URL.
         String stringUrl = "";
@@ -168,7 +179,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
      * @param url {@link URL} object to make a network request on.
      * @return {@link String} JSON response fetched from the network request.
      */
-    private static String getJsonFromUrl(URL url) throws IOException {
+    private String getJsonFromUrl(URL url) throws IOException {
 
         // Initialize objects used for network request.
         HttpURLConnection httpURLConnection = null;
@@ -213,7 +224,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
      * @param inputStream {@link InputStream} object fetched from a network request.
      * @return A {@link String} JSON response.
      */
-    private static String getJsonFromInputStream(InputStream inputStream) throws IOException {
+    private String getJsonFromInputStream(InputStream inputStream) throws IOException {
         StringBuilder stringBuilder = new StringBuilder();
         InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
         BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
@@ -232,7 +243,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
      * @param json {@link String} JSON response from a Google Books API volumes search.
      * @return {@link List} of {@link Book} objects parsed from a JSON response.
      */
-    private static List<Book> extractBooksFromJson(String json) {
+    private List<Book> extractBooksFromJson(String json) {
 
         List<Book> books = new ArrayList<>();
 
@@ -296,6 +307,7 @@ public class BookLoader extends AsyncTaskLoader<List<Book>> {
             books.add(new Book(title, authors, url));
         }
 
+        this.books = books;
         return books;
     }
 }
